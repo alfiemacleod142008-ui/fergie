@@ -36,7 +36,15 @@ def _tidy(text):
 
 LLM_URL = os.environ.get("LLM_URL", "http://localhost:11434")
 MODEL = os.environ.get("LLM_MODEL", "qwen2.5:7b")
+VISION_MODEL = os.environ.get("VISION_MODEL", "llava:7b")
 TIMEOUT = 90
+
+VISION_SYSTEM = """You are Fergie, an expert UK plant and crop adviser looking at a photo a grower has sent.
+Identify the plant as precisely as you can, giving the common name and the rough type if you are unsure.
+Then give a short, useful read: what it is, how it looks (any pest, disease, deficiency or stress you can see),
+and one or two practical care or growing tips for a UK grower. If it is clearly not a plant, say so briefly.
+Be confident but honest about uncertainty. Plain text, British English, no markdown, no emojis, no hyphens or
+dashes. Keep it to four or five short sentences."""
 
 CHAT_SYSTEM = """You are Fergie, a friendly UK farming and growing adviser chatting with a farmer or grower.
 
@@ -292,6 +300,30 @@ def chat(advice, messages, memory=None, weather=None):
 
     try:
         return _tidy(_generate(system, msgs, temperature=0.35, num_predict=limit)) or None
+    except Exception:
+        return None
+
+
+def identify(image, note=None):
+    if not image:
+        return None
+    if image.strip().startswith("data:") and "," in image:
+        image = image.split(",", 1)[1]
+    ask = _clean(note, 300) if note and note.strip() else "What is this plant, and how does it look?"
+    payload = {
+        "model": VISION_MODEL,
+        "messages": [
+            {"role": "system", "content": VISION_SYSTEM},
+            {"role": "user", "content": ask, "images": [image]},
+        ],
+        "stream": False,
+        "options": {"temperature": 0.3, "num_predict": 400},
+    }
+    try:
+        response = httpx.post(f"{LLM_URL}/api/chat", json=payload, timeout=TIMEOUT)
+        response.raise_for_status()
+        text = (response.json().get("message", {}).get("content") or "").strip()
+        return _tidy(text) or None
     except Exception:
         return None
 

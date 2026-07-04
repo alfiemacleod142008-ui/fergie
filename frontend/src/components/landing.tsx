@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Sprout } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+
+import { Logo } from "@/components/logo";
 
 export function Landing({ onEnter }: { onEnter: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,8 +110,8 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
       <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 z-0 h-full w-full" />
       <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/40 via-transparent to-black/70" />
       <div className="relative z-20 mx-auto flex h-full max-w-2xl flex-col items-center justify-center px-8 text-center">
-        <div className={`flex items-center gap-2 text-white/75 ${reveal} ${shown}`}>
-          <Sprout className="size-5" />
+        <div className={`flex items-center gap-2.5 text-white/75 ${reveal} ${shown}`}>
+          <Logo className="size-6 text-emerald-400" />
           <span className="text-sm font-medium uppercase tracking-[0.3em]">Fergie</span>
         </div>
         <h1

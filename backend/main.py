@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from analysis import analyse_weather
 from geocode import geocode
 from landuse import get_landuse
-from llm import chat, remember, summarise
+from llm import chat, identify, remember, summarise
 from ndvi import get_ndvi
 from planting import find_planting_window
 from resolve import resolve
@@ -108,6 +108,12 @@ async def chat_reply(payload: dict):
 async def remember_facts(payload: dict):
     facts, _ = await _run(remember, payload.get("messages") or [], timeout=20)
     return {"facts": facts or []}
+
+
+@app.post("/identify")
+async def identify_plant(payload: dict):
+    reply, error = await _run(identify, payload.get("image"), payload.get("note"), timeout=90)
+    return {"reply": reply, "error": error}
 
 
 @app.get("/resolve")

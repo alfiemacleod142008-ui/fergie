@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowRight,
+  Camera,
   ChevronRight,
   FolderPlus,
   Loader2,
@@ -21,6 +22,7 @@ import { Landing } from "@/components/landing";
 import { GridBackground } from "@/components/grid-background";
 import { FieldPanel } from "@/components/field-panel";
 import { FieldLoading } from "@/components/field-loading";
+import { Logo } from "@/components/logo";
 import { Markdown } from "@/components/markdown";
 import { Modal } from "@/components/modal";
 import { ChatInput, ChatInputSubmit, ChatInputTextArea } from "@/components/ui/chat-input";
@@ -40,6 +42,7 @@ type Msg =
   | { role: "user"; content: string }
   | { role: "assistant"; content: string }
   | { role: "image"; url: string; builtUp?: boolean }
+  | { role: "photo"; url: string }
   | { role: "advice"; crop: string; advice: any; land: any; summary: string | null };
 
 function wantsField(text: string) {
@@ -154,6 +157,7 @@ export default function Home() {
   const [settingsPostcode, setSettingsPostcode] = useState("");
   const reqId = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -496,6 +500,43 @@ export default function Home() {
     document.getElementById(`crop-${name}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  async function identifyImage(dataUrl: string) {
+    if (!dataUrl || sending) return;
+    const note = input.trim();
+    setInput("");
+    patch((c) => ({ messages: [...c.messages, { role: "photo", url: dataUrl }] }));
+    setSending(true);
+    scrollDown();
+    try {
+      const response = await fetch(`${API}/identify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUrl, note }),
+      });
+      const data = await response.json();
+      patch((c) => ({
+        messages: [
+          ...c.messages,
+          { role: "assistant", content: data.reply || "I couldn't make out the plant in that photo. Try a clearer, closer shot in good light." },
+        ],
+      }));
+    } catch {
+      patch((c) => ({ messages: [...c.messages, { role: "assistant", content: "I couldn't reach the server to look at that photo." }] }));
+    } finally {
+      setSending(false);
+      scrollDown();
+    }
+  }
+
+  function onPickImage(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => identifyImage(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
   function openSettings() {
     setSettingsPostcode(geo?.name || postcode || "");
     setError("");
@@ -599,7 +640,7 @@ export default function Home() {
       <main className="flex h-dvh overflow-hidden bg-neutral-950 text-white antialiased duration-700 animate-in fade-in motion-reduce:animate-none">
         <aside className="hidden w-64 flex-col border-r border-white/10 bg-black/40 md:flex">
           <div className="flex items-center gap-2 px-4 pb-3 pt-5">
-            <span className="size-2.5 rounded-full bg-emerald-400" />
+            <Logo className="size-5 text-emerald-400" />
             <span className="text-[15px] font-semibold tracking-tight">Fergie</span>
           </div>
           <div className="px-3">
@@ -745,6 +786,17 @@ export default function Home() {
                       </figure>
                     );
                   }
+                  if (message.role === "photo") {
+                    return (
+                      <div key={index} className="flex justify-end">
+                        <img
+                          src={message.url}
+                          alt="Plant photo you sent"
+                          className="max-h-64 max-w-[75%] rounded-2xl border border-white/10 object-cover"
+                        />
+                      </div>
+                    );
+                  }
                   return (
                     <div key={index} id={`crop-${message.crop}`} className="space-y-3">
                       {message.summary && (
@@ -769,24 +821,36 @@ export default function Home() {
           </div>
 
           <div className="border-t border-white/10">
-            <div className="mx-auto max-w-3xl px-4 py-3">
-              <ChatInput
-                variant="default"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onSubmit={submit}
-                loading={sending}
-                className="rounded-2xl border-white/15 bg-white/[0.04] focus-within:ring-emerald-400/40"
+            <div className="mx-auto flex max-w-3xl items-end gap-2 px-4 py-3">
+              <input ref={fileRef} type="file" accept="image/*" onChange={onPickImage} className="hidden" />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={sending}
+                aria-label="Send a plant photo to identify"
+                title="Identify a plant from a photo"
+                className={`mb-[3px] grid size-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-40 ${FOCUS}`}
               >
-                <ChatInputTextArea
-                  placeholder="Ask Fergie anything, or name another crop…"
-                  className="bg-transparent text-[15px] text-white placeholder:text-white/50"
-                />
-                <ChatInputSubmit className="border-transparent bg-primary text-primary-foreground hover:bg-primary/90" />
-              </ChatInput>
-              <p className="mt-2 text-center text-xs text-white/35">
-                Fergie uses live weather, terrain, soil and land use data. Check important decisions.
-              </p>
+                <Camera className="size-5" aria-hidden="true" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <ChatInput
+                  variant="default"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onSubmit={submit}
+                  loading={sending}
+                  className="rounded-2xl border-white/15 bg-white/[0.04] focus-within:ring-emerald-400/40"
+                >
+                  <ChatInputTextArea
+                    placeholder="Ask Fergie anything, or send a plant photo…"
+                    className="bg-transparent text-[15px] text-white placeholder:text-white/50"
+                  />
+                  <ChatInputSubmit className="border-transparent bg-primary text-primary-foreground hover:bg-primary/90" />
+                </ChatInput>
+                <p className="mt-2 text-center text-xs text-white/35">
+                  Fergie uses live weather, terrain, soil and land use data. Check important decisions.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -918,7 +982,10 @@ export default function Home() {
     <main className="relative min-h-dvh overflow-hidden bg-black text-white antialiased duration-700 animate-in fade-in motion-reduce:animate-none">
       <GridBackground />
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center px-5 pb-16 pt-14">
-        <span className="text-sm font-medium tracking-tight text-white/70">Fergie</span>
+        <div className="flex items-center gap-2 text-white/70">
+          <Logo className="size-5 text-emerald-400" />
+          <span className="text-sm font-medium tracking-tight">Fergie</span>
+        </div>
 
         <h1 className="mt-5 text-center text-4xl font-light tracking-tight text-white md:text-6xl">
           {phase === "map" ? "Pin your field" : "When & where to plant"}

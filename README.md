@@ -1,5 +1,7 @@
 # Fergie
 
+Live at [fergie-rho.vercel.app](https://fergie-rho.vercel.app)
+
 Know when and where to plant. Fergie is a planting adviser for UK growers. Enter a postcode
 and a crop, drop a pin on your field, and it pulls real, free data for that exact spot, reasons
 over it, and gives you the best planting window and a deep growing outlook. A local language
