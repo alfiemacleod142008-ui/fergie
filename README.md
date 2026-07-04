@@ -35,41 +35,6 @@ through Overpass for land use, and Esri World Imagery for the satellite tiles.
 The planting window, the weather analysis and the land use checks are deterministic Python.
 The language model only narrates and answers questions. It never invents the numbers.
 
-## Running it
-
-You need Python 3.11, Node 20 or newer, and a local language model server on
-`http://localhost:11434` that serves a chat API and has a model such as `qwen2.5:7b` loaded.
-
-Backend:
-
-```bash
-cd backend
-python3.11 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn main:app --reload
-```
-
-The API runs at `http://localhost:8000` and the docs are at `/docs`.
-
-Front end:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-## Configuration
-
-Copy `backend/.env.example` to `backend/.env`. Everything works out of the box and the
-variables are optional:
-
-- `LLM_MODEL` is the local model to use. The default is `qwen2.5:7b`.
-- `LLM_URL` is the model server. The default is `http://localhost:11434`.
-- `CDSE_CLIENT_ID` and `CDSE_CLIENT_SECRET` enable a free Copernicus account for Sentinel 2 NDVI.
-
 ## Notes
 
 A fourteen day forecast, a postcode scale location and a language model are decision support,
