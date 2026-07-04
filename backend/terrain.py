@@ -44,10 +44,10 @@ def _aspect(grad_ns, grad_ew):
 
 def _drainage(slope_degrees):
     if slope_degrees < 2:
-        return "flat — water may collect, drainage can be poor"
+        return "flat, water may collect and drainage can be poor"
     if slope_degrees < 8:
-        return "gentle slope — good natural drainage"
-    return "steep — drains fast, can dry out or erode"
+        return "gentle slope with good natural drainage"
+    return "steep, drains fast and can dry out or erode"
 
 
 def get_terrain(lat, lon):

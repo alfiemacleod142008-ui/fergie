@@ -13,20 +13,20 @@ def _texture(clay, sand):
     if clay is None or sand is None:
         return "unknown"
     if clay >= 40:
-        return "clay — heavy, holds water, slow to drain and warm up"
+        return "clay, heavy, holds water and slow to warm up"
     if sand >= 70:
-        return "sandy — light, drains fast, dries out and warms quickly"
-    return "loam — balanced moisture and drainage, good for most crops"
+        return "sandy, light, drains fast and warms quickly"
+    return "loam, balanced moisture and drainage, good for most crops"
 
 
 def _ph_note(ph):
     if ph is None:
         return "unknown"
     if ph < 5.5:
-        return f"acidic (pH {ph}) — good for potatoes/blueberries; lime for brassicas"
+        return f"acidic (pH {ph}), good for potatoes and blueberries, lime for brassicas"
     if ph <= 7.5:
-        return f"near-neutral (pH {ph}) — suits most crops"
-    return f"alkaline (pH {ph}) — suits brassicas; poor for acid-loving crops"
+        return f"near neutral (pH {ph}), suits most crops"
+    return f"alkaline (pH {ph}), suits brassicas, poorer for acid loving crops"
 
 
 def _fetch(params, attempts=2):

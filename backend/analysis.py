@@ -165,8 +165,7 @@ def analyse_weather(weather, terrain, satellite, soil, crop_info):
     if wind_peak and wind_peak > 38:
         parts.append(f"Winds peak near {round(wind_peak)} km/h, so shelter tender transplants.")
     if terrain:
-        drainage = terrain["drainage"].split("—")[0].strip()
-        parts.append(f"The ground sits {terrain['elevation_m']}m up, faces {terrain['aspect']}, and is {drainage}.")
+        parts.append(f"The ground sits {terrain['elevation_m']}m up, faces {terrain['aspect']}, {terrain['drainage']}.")
     if best_day:
         parts.append(f"The strongest day to get going looks like {_fmt(best_day)}.")
     if heat_peak is not None:

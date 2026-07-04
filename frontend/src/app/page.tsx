@@ -739,7 +739,7 @@ export default function Home() {
                         />
                         <figcaption className="bg-white/[0.03] px-3 py-2 text-[13px] text-white/60">
                           {message.builtUp
-                            ? "Your field from above. This spot looks built up, re-pin in Settings if needed."
+                            ? "Your field from above. This spot looks built up, reposition it in Settings if needed."
                             : "Your field from above."}
                         </figcaption>
                       </figure>
@@ -833,7 +833,7 @@ export default function Home() {
             }}
             className={`mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/15 ${FOCUS}`}
           >
-            <MapPin className="size-4" aria-hidden="true" /> Re-pin this field
+            <MapPin className="size-4" aria-hidden="true" /> Reposition the pin
           </button>
 
           {memory.length > 0 && (

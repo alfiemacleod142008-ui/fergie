@@ -34,8 +34,8 @@ def _tidy(text):
     return " ".join(s for s in sentences if s).strip()
 
 
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
+LLM_URL = os.environ.get("LLM_URL", "http://localhost:11434")
+MODEL = os.environ.get("LLM_MODEL", "qwen2.5:7b")
 TIMEOUT = 90
 
 CHAT_SYSTEM = """You are Fergie, a friendly UK farming and growing adviser chatting with a farmer or grower.
@@ -89,7 +89,7 @@ def _clean(value, limit=80):
     return text[:limit]
 
 
-def _ollama(system, messages, temperature=0.4, json_mode=False, num_predict=400):
+def _generate(system, messages, temperature=0.4, json_mode=False, num_predict=400):
     payload = {
         "model": MODEL,
         "messages": [{"role": "system", "content": system}] + messages,
@@ -98,7 +98,7 @@ def _ollama(system, messages, temperature=0.4, json_mode=False, num_predict=400)
     }
     if json_mode:
         payload["format"] = "json"
-    response = httpx.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=TIMEOUT)
+    response = httpx.post(f"{LLM_URL}/api/chat", json=payload, timeout=TIMEOUT)
     response.raise_for_status()
     return (response.json().get("message", {}).get("content") or "").strip()
 
@@ -204,7 +204,7 @@ def summarise(advice):
         "Write Fergie's advice now, following your system rules."
     )
     try:
-        text = _ollama(SYSTEM, [{"role": "user", "content": user}], temperature=0.3, num_predict=340)
+        text = _generate(SYSTEM, [{"role": "user", "content": user}], temperature=0.3, num_predict=340)
         return text or None
     except Exception:
         return None
@@ -224,7 +224,7 @@ def resolve_crop(text):
         "crop or plant, set crop to null."
     )
     try:
-        raw = _ollama(
+        raw = _generate(
             "You extract crop information and reply with JSON only.",
             [{"role": "user", "content": prompt}],
             temperature=0,
@@ -291,7 +291,7 @@ def chat(advice, messages, memory=None, weather=None):
     limit = 520 if wants_plan else 200
 
     try:
-        return _tidy(_ollama(system, msgs, temperature=0.35, num_predict=limit)) or None
+        return _tidy(_generate(system, msgs, temperature=0.35, num_predict=limit)) or None
     except Exception:
         return None
 
@@ -313,7 +313,7 @@ def remember(messages):
         "durable to keep.\n\n" + "\n".join(convo)
     )
     try:
-        raw = _ollama(
+        raw = _generate(
             "You extract durable facts about a grower and reply with JSON only.",
             [{"role": "user", "content": prompt}],
             temperature=0,
