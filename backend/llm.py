@@ -37,20 +37,29 @@ def _tidy(text):
 def _relist(text):
     if not text:
         return text
-    markers = list(re.finditer(r"(?:^|\s)\d{1,2}[.)]\s+", text))
-    if len(markers) < 3:
-        return text
-    lead = text[: markers[0].start()].strip()
-    body = text[markers[0].start():]
-    items = [i.strip() for i in re.split(r"(?:^|\s)\d{1,2}[.)]\s+", body) if i.strip()]
-    intro = lead
-    if ":" in lead:
-        head, tail = lead.rsplit(":", 1)
-        intro = head.strip() + ":"
-        if tail.strip():
-            items = [tail.strip()] + items
-    numbered = "\n".join(f"{n}. {t}" for n, t in enumerate(items, 1))
-    return f"{intro}\n\n{numbered}".strip() if intro else numbered
+    t = text.strip()
+    t = re.sub(r"[ \t]*#{1,6}[ \t]*([^\n#:]{1,50}):[ \t]*", r"\n\n**\1:** ", t)
+    t = re.sub(r"[ \t]*#{1,6}[ \t]*([^\n#]{1,80}?)[ \t]*(?=\n|$)", r"\n\n**\1**\n\n", t)
+    t = re.sub(r"#{1,6}", "", t)
+    if len(re.findall(r"(?:^|\s)\d{1,2}[.)][ \t]+\S", t)) >= 2:
+        t = re.sub(r"[ \t]*\n?[ \t]*(?<![\d.])(\d{1,2})[.)][ \t]+", lambda m: f"\n{int(m.group(1))}. ", t)
+    t = re.sub(r"[ \t]*\n?[ \t]*[-•][ \t]+", "\n- ", t)
+    t = re.sub(r"\n[ \t]*\d{1,2}[.)]?[ \t]*$", "", t)
+    blocks = re.split(r"\n{2,}", t)
+    result = []
+    for block in blocks:
+        lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+        if not lines:
+            continue
+        buf = []
+        for ln in lines:
+            item = bool(re.match(r"(?:\d{1,2}\.|-)\s", ln))
+            if item and buf and not re.match(r"(?:\d{1,2}\.|-)\s", buf[-1]):
+                result.append("\n".join(buf))
+                buf = []
+            buf.append(ln)
+        result.append("\n".join(buf))
+    return re.sub(r"\n{3,}", "\n\n", "\n\n".join(result)).strip()
 
 
 LLM_URL = os.environ.get("LLM_URL", "http://localhost:11434")
@@ -95,8 +104,9 @@ SAFETY
 
 STYLE
 - Keep normal answers brief and precise: 2 to 3 short sentences. Answer directly. Never end with "feel free to ask", "let me know", or any offer of further help, and never open with a refusal. For ordinary answers do not use lists; name two or three crops inline in a sentence.
-- When the grower asks for a plan, schedule, calendar, rotation, comparison or step by step, design it properly: a one line intro, then a short markdown numbered list with one item per line, each clearly labelled (for example "Week 1: sow broad beans" or "1. Prepare the bed"). Bold the label if it helps. Keep each line short and only include what was asked for.
-- Warm, practical, British English, no emojis or headings.
+- When the grower asks for a plan, schedule, how to grow something, or step by step help, give a one line intro sentence, then a numbered list. Write each item on its own new line as "1. ...", "2. ..." and so on, starting a real new line before each number. Keep each item to one short line and finish the last item fully so nothing is cut off.
+- Formatting must be clean. Never use the hash symbol or markdown headings like ### . Never use dash or bullet points. Never run a list together on one line. If you want a label, put it in bold at the start of the line, for example "1. **Soil:** keep it well drained".
+- Warm, practical, British English, no emojis.
 - Never use hyphens or dashes of any kind; write it out (say "to" for a range, "frost free" not "frost-free")."""
 
 SYSTEM = """You are Fergie, an expert UK crop adviser giving a farmer a sharp, precise read on their land.
@@ -320,9 +330,13 @@ def chat(advice, messages, memory=None, weather=None):
 
     last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
     wants_plan = bool(
-        re.search(r"\b(plan|schedule|calendar|rotation|step by step|programme|timeline|weeks|month by month)\b", last_user.lower())
+        re.search(
+            r"\b(plan|schedule|calendar|rotation|step by step|programme|timeline|weeks|month by month|"
+            r"how (do|to|can)|help me|walk me|guide|get started|getting started|grow|growing|start(ing)? (a|my|some)|tips|advice on|list|steps)\b",
+            last_user.lower(),
+        )
     )
-    limit = 520 if wants_plan else 200
+    limit = 900 if wants_plan else 320
 
     try:
         return _relist(_tidy(_generate(system, msgs, temperature=0.35, num_predict=limit))) or None
