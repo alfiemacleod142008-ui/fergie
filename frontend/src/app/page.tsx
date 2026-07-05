@@ -376,7 +376,7 @@ export default function Home() {
       } else {
         const reply = await chatReply(results[activeCrop]?.advice, history);
         patch((c) => ({
-          messages: [...c.messages, { role: "assistant", content: reply || "I'm a bit busy right now. Give me a moment and ask again." }],
+          messages: [...c.messages, { role: "assistant", content: reply || "Sorry, that took too long to come back to you. Please ask again in a moment." }],
         }));
       }
     } catch {

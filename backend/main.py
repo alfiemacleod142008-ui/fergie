@@ -99,7 +99,7 @@ async def chat_reply(payload: dict):
         payload.get("messages") or [],
         payload.get("memory") or [],
         weather,
-        timeout=20,
+        timeout=60,
     )
     return {"reply": reply, "error": error}
 
