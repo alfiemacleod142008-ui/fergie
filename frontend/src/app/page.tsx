@@ -36,6 +36,13 @@ const FieldMap = dynamic(() => import("@/components/field-map").then((m) => m.Fi
 });
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+function apiFetch(path: string, opts: RequestInit = {}) {
+  return fetch(`${API}${path}`, {
+    ...opts,
+    headers: { "ngrok-skip-browser-warning": "true", ...(opts.headers || {}) },
+  });
+}
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 const PRIMARY = `group flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3.5 font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none ${FOCUS}`;
@@ -226,7 +233,7 @@ export default function Home() {
   }
 
   async function geocode(pc: string) {
-    const response = await fetch(`${API}/geocode?location=${encodeURIComponent(pc.trim())}`);
+    const response = await apiFetch(`/geocode?location=${encodeURIComponent(pc.trim())}`);
     const data = await response.json();
     if (data.error) {
       setError(data.error);
@@ -237,7 +244,7 @@ export default function Home() {
 
   async function resolveText(text: string) {
     try {
-      const response = await fetch(`${API}/resolve?text=${encodeURIComponent(text)}&local=true`);
+      const response = await apiFetch(`/resolve?text=${encodeURIComponent(text)}&local=true`);
       const data = await response.json();
       return (data.crop as string | null) || null;
     } catch {
@@ -252,14 +259,14 @@ export default function Home() {
       lat: String(coords.lat),
       lon: String(coords.lon),
     });
-    const response = await fetch(`${API}/advice?${params}`);
+    const response = await apiFetch(`/advice?${params}`);
     const advice = await response.json();
     if (advice.error) return null;
     const [land, summaryData] = await Promise.all([
-      fetch(`${API}/landuse?lat=${coords.lat}&lon=${coords.lon}`)
+      apiFetch(`/landuse?lat=${coords.lat}&lon=${coords.lon}`)
         .then((r) => r.json())
         .catch(() => null),
-      fetch(`${API}/summary`, {
+      apiFetch(`/summary`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(advice),
@@ -274,7 +281,7 @@ export default function Home() {
     const trimmed = history
       .filter((m) => m.role === "user" || m.role === "assistant")
       .map((m) => ({ role: m.role, content: (m as any).content }));
-    const response = await fetch(`${API}/chat`, {
+    const response = await apiFetch(`/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ advice, messages: trimmed, memory, lat: pin?.lat, lon: pin?.lon }),
@@ -284,7 +291,7 @@ export default function Home() {
   }
 
   function learn(text: string) {
-    fetch(`${API}/remember`, {
+    apiFetch(`/remember`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: [{ role: "user", content: text }] }),
@@ -360,7 +367,7 @@ export default function Home() {
     if (mightHaveFacts(text) && !wantsField(text)) learn(text);
     try {
       if (wantsField(text)) {
-        const data = await fetch(`${API}/field?lat=${pin.lat}&lon=${pin.lon}`)
+        const data = await apiFetch(`/field?lat=${pin.lat}&lon=${pin.lon}`)
           .then((r) => r.json())
           .catch(() => null);
         if (data?.image_url) {
@@ -542,7 +549,7 @@ export default function Home() {
     setSending(true);
     scrollDown();
     try {
-      const response = await fetch(`${API}/identify`, {
+      const response = await apiFetch(`/identify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: dataUrl, note: question }),
