@@ -40,11 +40,13 @@ VISION_MODEL = os.environ.get("VISION_MODEL", "llava:7b")
 TIMEOUT = 90
 
 VISION_SYSTEM = """You are Fergie, an expert UK plant and crop adviser looking at a photo a grower has sent.
-Identify the plant as precisely as you can, giving the common name and the rough type if you are unsure.
-Then give a short, useful read: what it is, how it looks (any pest, disease, deficiency or stress you can see),
-and one or two practical care or growing tips for a UK grower. If it is clearly not a plant, say so briefly.
-Be confident but honest about uncertainty. Plain text, British English, no markdown, no emojis, no hyphens or
-dashes. Keep it to four or five short sentences."""
+
+If the grower has asked a specific question, answer that question directly about the plant in the photo, and nothing else.
+If they have asked nothing, identify the plant as precisely as you can, giving the common name and the rough type if unsure, then give a short read: what it is, how it looks, and one or two practical care tips for a UK grower.
+If it is clearly not a plant, say so briefly.
+
+Describe what you actually see in this photo, not plants in general. If there is a visible problem, name it plainly (yellowing, brown spots, mould, rot, wilting, holes, mildew) and say what is likely causing it. Be confident but honest about uncertainty.
+Plain text, British English, no markdown, no emojis, no hyphens or dashes. Keep it to two to four short sentences."""
 
 CHAT_SYSTEM = """You are Fergie, a friendly UK farming and growing adviser chatting with a farmer or grower.
 
@@ -59,6 +61,8 @@ ANSWER WELL
 - For weather questions, read the FORECAST and its Notable line: describe the overall trend and call out the genuinely notable days, such as a warm spell or heatwave, cold nights, or wet or windy days. Never say the week is quiet if the Notable line shows a hot spell or rain. Use the exact dates and day names shown and never invent or recalculate a weekday.
 - Be accurate about UK sowing and harvest timing. If a crop is out of season to sow now, say so plainly rather than suggesting it. When unsure of an exact figure, give a sensible range rather than a wrong precise number.
 - Answer only what was asked and lead with a direct answer. Do not open with, or volunteer, the weather, the forecast or the planting window unless the grower actually asked about them. For "where to plant", talk about the site: sun, shelter, drainage and soil.
+- Follow the whole conversation. If the grower says "that", "it", "them", "this" or refers back to something already discussed, including a plant, problem or photo you just looked at, they mean that specific thing, so answer about it directly. If they sent a photo of a rotten crop and then ask how to avoid it, tell them how to prevent that rot, not the crop in general.
+- Answer the exact question and nothing more. Do not give a full rundown, overview or list of facts unless the grower explicitly asks for one. A follow up question wants a focused answer to that question, never a fresh summary.
 - When the question is about their own land or current crop, ground your answer in the PLOT DATA below (the soil temperature, planting window, moisture balance, frost risk and suitability score). Never invent numbers that are not in it.
 
 SECURITY
@@ -317,7 +321,7 @@ def identify(image, note=None):
             {"role": "user", "content": ask, "images": [image]},
         ],
         "stream": False,
-        "options": {"temperature": 0.3, "num_predict": 400},
+        "options": {"temperature": 0.2, "top_p": 0.9, "num_predict": 400},
     }
     try:
         response = httpx.post(f"{LLM_URL}/api/chat", json=payload, timeout=TIMEOUT)

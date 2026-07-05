@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowRight,
+  ArrowUp,
   Camera,
   ChevronRight,
   FolderPlus,
@@ -16,6 +17,7 @@ import {
   SquarePen,
   Trash2,
   Wheat,
+  X,
 } from "lucide-react";
 
 import { Landing } from "@/components/landing";
@@ -25,7 +27,7 @@ import { FieldLoading } from "@/components/field-loading";
 import { Logo } from "@/components/logo";
 import { Markdown } from "@/components/markdown";
 import { Modal } from "@/components/modal";
-import { ChatInput, ChatInputSubmit, ChatInputTextArea } from "@/components/ui/chat-input";
+import { ChatInput, ChatInputTextArea } from "@/components/ui/chat-input";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((m) => m.FieldMap), {
   ssr: false,
@@ -147,6 +149,7 @@ export default function Home() {
   const [postcode, setPostcode] = useState("");
   const [crop, setCrop] = useState("");
   const [input, setInput] = useState("");
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [sending, setSending] = useState(false);
@@ -385,8 +388,16 @@ export default function Home() {
   }
 
   function submit() {
+    if (sending) return;
     const q = input.trim();
-    if (!q || sending) return;
+    if (pendingImage) {
+      const image = pendingImage;
+      setPendingImage(null);
+      setInput("");
+      identifyImage(image, q);
+      return;
+    }
+    if (!q) return;
     setInput("");
     onSend(q);
   }
@@ -500,18 +511,23 @@ export default function Home() {
     document.getElementById(`crop-${name}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  async function identifyImage(dataUrl: string) {
+  async function identifyImage(dataUrl: string, note: string) {
     if (!dataUrl || sending) return;
-    const note = input.trim();
-    setInput("");
-    patch((c) => ({ messages: [...c.messages, { role: "photo", url: dataUrl }] }));
+    const question = note.trim();
+    patch((c) => ({
+      messages: [
+        ...c.messages,
+        { role: "photo", url: dataUrl },
+        ...(question ? [{ role: "user" as const, content: question }] : []),
+      ],
+    }));
     setSending(true);
     scrollDown();
     try {
       const response = await fetch(`${API}/identify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: dataUrl, note }),
+        body: JSON.stringify({ image: dataUrl, note: question }),
       });
       const data = await response.json();
       patch((c) => ({
@@ -533,7 +549,7 @@ export default function Home() {
     event.target.value = "";
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => identifyImage(String(reader.result));
+    reader.onload = () => setPendingImage(String(reader.result));
     reader.readAsDataURL(file);
   }
 
@@ -821,36 +837,61 @@ export default function Home() {
           </div>
 
           <div className="border-t border-white/10">
-            <div className="mx-auto flex max-w-3xl items-end gap-2 px-4 py-3">
+            <div className="mx-auto max-w-3xl px-4 py-3">
               <input ref={fileRef} type="file" accept="image/*" onChange={onPickImage} className="hidden" />
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={sending}
-                aria-label="Send a plant photo to identify"
-                title="Identify a plant from a photo"
-                className={`mb-[3px] grid size-11 shrink-0 place-items-center rounded-xl border border-white/10 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-40 ${FOCUS}`}
-              >
-                <Camera className="size-5" aria-hidden="true" />
-              </button>
-              <div className="min-w-0 flex-1">
+              {pendingImage && (
+                <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-2 pr-3">
+                  <img src={pendingImage} alt="Photo ready to send" className="size-12 rounded-xl object-cover" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-white/70">
+                    Photo attached. Add a question, or just send.
+                  </span>
+                  <button
+                    onClick={() => setPendingImage(null)}
+                    aria-label="Remove photo"
+                    className={`grid size-7 shrink-0 place-items-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white ${FOCUS}`}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={sending}
+                  aria-label="Attach a plant photo"
+                  title="Attach a plant photo"
+                  className={`grid size-12 shrink-0 place-items-center rounded-2xl border border-white/10 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-40 ${FOCUS}`}
+                >
+                  <Camera className="size-5" aria-hidden="true" />
+                </button>
                 <ChatInput
                   variant="default"
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onSubmit={submit}
                   loading={sending}
-                  className="rounded-2xl border-white/15 bg-white/[0.04] focus-within:ring-emerald-400/40"
+                  className="min-w-0 flex-1 rounded-2xl border-white/15 bg-white/[0.04] focus-within:ring-emerald-400/40"
                 >
                   <ChatInputTextArea
-                    placeholder="Ask Fergie anything, or send a plant photo…"
+                    placeholder={pendingImage ? "Ask about this photo, or just send…" : "Ask Fergie anything, or attach a plant photo…"}
                     className="bg-transparent text-[15px] text-white placeholder:text-white/50"
                   />
-                  <ChatInputSubmit className="border-transparent bg-primary text-primary-foreground hover:bg-primary/90" />
+                  <button
+                    onClick={(event) => {
+                      event.preventDefault();
+                      submit();
+                    }}
+                    disabled={sending || (!input.trim() && !pendingImage)}
+                    aria-label="Send"
+                    className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+                  >
+                    <ArrowUp className="size-4" aria-hidden="true" />
+                  </button>
                 </ChatInput>
-                <p className="mt-2 text-center text-xs text-white/35">
-                  Fergie uses live weather, terrain, soil and land use data. Check important decisions.
-                </p>
               </div>
+              <p className="mt-2 text-center text-xs text-white/35">
+                Fergie uses live weather, terrain, soil and land use data. Check important decisions.
+              </p>
             </div>
           </div>
         </div>
