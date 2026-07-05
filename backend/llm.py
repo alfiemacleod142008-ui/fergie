@@ -34,6 +34,25 @@ def _tidy(text):
     return " ".join(s for s in sentences if s).strip()
 
 
+def _relist(text):
+    if not text:
+        return text
+    markers = list(re.finditer(r"(?:^|\s)\d{1,2}[.)]\s+", text))
+    if len(markers) < 3:
+        return text
+    lead = text[: markers[0].start()].strip()
+    body = text[markers[0].start():]
+    items = [i.strip() for i in re.split(r"(?:^|\s)\d{1,2}[.)]\s+", body) if i.strip()]
+    intro = lead
+    if ":" in lead:
+        head, tail = lead.rsplit(":", 1)
+        intro = head.strip() + ":"
+        if tail.strip():
+            items = [tail.strip()] + items
+    numbered = "\n".join(f"{n}. {t}" for n, t in enumerate(items, 1))
+    return f"{intro}\n\n{numbered}".strip() if intro else numbered
+
+
 LLM_URL = os.environ.get("LLM_URL", "http://localhost:11434")
 MODEL = os.environ.get("LLM_MODEL", "qwen2.5:7b")
 VISION_MODEL = os.environ.get("VISION_MODEL", "llava:7b")
@@ -46,7 +65,8 @@ If they have asked nothing, identify the plant as precisely as you can, giving t
 If it is clearly not a plant, say so briefly.
 
 Describe what you actually see in this photo, not plants in general. If there is a visible problem, name it plainly (yellowing, brown spots, mould, rot, wilting, holes, mildew) and say what is likely causing it. Be confident but honest about uncertainty.
-Plain text, British English, no markdown, no emojis, no hyphens or dashes. Keep it to two to four short sentences."""
+Stay on identifying and growing the plant and its condition. Do not suggest recipes, meals or ways to eat or use it unless the grower explicitly asks.
+Write two to four short sentences of flowing prose. Never write a numbered list or bullet points. Plain text, British English, no markdown, no emojis, no hyphens or dashes."""
 
 CHAT_SYSTEM = """You are Fergie, a friendly UK farming and growing adviser chatting with a farmer or grower.
 
@@ -303,7 +323,7 @@ def chat(advice, messages, memory=None, weather=None):
     limit = 520 if wants_plan else 200
 
     try:
-        return _tidy(_generate(system, msgs, temperature=0.35, num_predict=limit)) or None
+        return _relist(_tidy(_generate(system, msgs, temperature=0.35, num_predict=limit))) or None
     except Exception:
         return None
 
@@ -321,13 +341,13 @@ def identify(image, note=None):
             {"role": "user", "content": ask, "images": [image]},
         ],
         "stream": False,
-        "options": {"temperature": 0.2, "top_p": 0.9, "num_predict": 400},
+        "options": {"temperature": 0.2, "top_p": 0.9, "num_predict": 240},
     }
     try:
         response = httpx.post(f"{LLM_URL}/api/chat", json=payload, timeout=TIMEOUT)
         response.raise_for_status()
         text = (response.json().get("message", {}).get("content") or "").strip()
-        return _tidy(text) or None
+        return _relist(_tidy(text)) or None
     except Exception:
         return None
 
