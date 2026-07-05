@@ -138,6 +138,7 @@ def analyse_weather(weather, terrain, satellite, soil, crop_info):
     best_day = best[0] if best[1] >= 45 else None
 
     season_score = _season_score(month, sow_months)
+    in_season = sow_months is None or _in_window(month, sow_months)
 
     if avg_soil_temp is None:
         soil_score = 55
@@ -225,12 +226,18 @@ def analyse_weather(weather, terrain, satellite, soil, crop_info):
         parts.append(f"Winds peak near {round(wind_peak)} km/h, so shelter tender transplants.")
     if terrain:
         parts.append(f"The ground sits {terrain['elevation_m']}m up, faces {terrain['aspect']}, {terrain['drainage']}.")
-    if best_day:
+    if best_day and in_season:
         parts.append(f"The strongest day to get going looks like {_fmt(best_day)}.")
+    elif name and not in_season:
+        parts.append(
+            f"It is out of season to sow {name} now, so read this as the outlook for the ground "
+            "rather than a cue to sow yet."
+        )
     if heat_peak is not None:
+        who = "new sowings and seedlings" if in_season else "any young plants"
         parts.append(
             f"Looking further ahead, a hot spell builds to around {heat_peak}°C by {heat_day}, "
-            "so keep new sowings and seedlings well watered."
+            f"so keep {who} well watered."
         )
 
     return {
@@ -255,8 +262,8 @@ def analyse_weather(weather, terrain, satellite, soil, crop_info):
         "moisture_balance": moisture_balance,
         "sunshine_hours": sunshine_total,
         "wind_max": round(wind_peak) if wind_peak else None,
-        "best_day": _fmt(best_day) if best_day else None,
-        "in_season": sow_months is None or _in_window(month, sow_months),
+        "best_day": _fmt(best_day) if best_day and in_season else None,
+        "in_season": in_season,
         "factors": {
             "season": _clamp(season_score),
             "soil": _clamp(soil_score),
