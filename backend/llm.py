@@ -65,7 +65,7 @@ def _relist(text):
 LLM_URL = os.environ.get("LLM_URL", "http://localhost:11434")
 MODEL = os.environ.get("LLM_MODEL", "qwen2.5:7b")
 VISION_MODEL = os.environ.get("VISION_MODEL", "llava:7b")
-TIMEOUT = 90
+TIMEOUT = 180
 
 VISION_SYSTEM = """You are Fergie, an expert UK plant and crop adviser looking at a photo a grower has sent.
 
@@ -328,15 +328,7 @@ def chat(advice, messages, memory=None, weather=None):
     if opener:
         system += f"\n\nEarlier you told the grower: {opener}"
 
-    last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
-    wants_plan = bool(
-        re.search(
-            r"\b(plan|schedule|calendar|rotation|step by step|programme|timeline|weeks|month by month|"
-            r"how (do|to|can)|help me|walk me|guide|get started|getting started|grow|growing|start(ing)? (a|my|some)|tips|advice on|list|steps)\b",
-            last_user.lower(),
-        )
-    )
-    limit = 900 if wants_plan else 320
+    limit = -1
 
     try:
         return _relist(_tidy(_generate(system, msgs, temperature=0.35, num_predict=limit))) or None
@@ -357,7 +349,7 @@ def identify(image, note=None):
             {"role": "user", "content": ask, "images": [image]},
         ],
         "stream": False,
-        "options": {"temperature": 0.2, "top_p": 0.9, "num_predict": 240},
+        "options": {"temperature": 0.2, "top_p": 0.9, "num_predict": -1},
     }
     try:
         response = httpx.post(f"{LLM_URL}/api/chat", json=payload, timeout=TIMEOUT)

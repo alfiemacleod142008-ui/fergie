@@ -99,7 +99,7 @@ async def chat_reply(payload: dict):
         payload.get("messages") or [],
         payload.get("memory") or [],
         weather,
-        timeout=60,
+        timeout=150,
     )
     return {"reply": reply, "error": error}
 
@@ -112,7 +112,7 @@ async def remember_facts(payload: dict):
 
 @app.post("/identify")
 async def identify_plant(payload: dict):
-    reply, error = await _run(identify, payload.get("image"), payload.get("note"), timeout=90)
+    reply, error = await _run(identify, payload.get("image"), payload.get("note"), timeout=150)
     return {"reply": reply, "error": error}
 
 
