@@ -37,6 +37,36 @@ def _texture_word(soil):
     return "loam"
 
 
+def _in_window(month, months):
+    start, end = months
+    if start <= end:
+        return start <= month <= end
+    return month >= start or month <= end
+
+
+def _months_from_window(month, months):
+    start, end = months
+    if _in_window(month, months):
+        return 0
+    def gap(a, b):
+        d = abs(a - b) % 12
+        return min(d, 12 - d)
+    return min(gap(month, start), gap(month, end))
+
+
+def _season_score(month, months):
+    if months is None:
+        return 100
+    off = _months_from_window(month, months)
+    if off == 0:
+        return 100
+    if off == 1:
+        return 60
+    if off == 2:
+        return 35
+    return 15
+
+
 def _day_score(day, base, frost_sensitive):
     score = 100.0
     if frost_sensitive and day["frost"]:
@@ -74,6 +104,11 @@ def analyse_weather(weather, terrain, satellite, soil, crop_info):
     base = crop_info["min_temp"] if crop_info else 6
     frost_sensitive = crop_info["frost_sensitive"] if crop_info else True
     name = crop_info["name"] if crop_info else None
+    sow_months = crop_info.get("sow_months") if crop_info else None
+    try:
+        month = int(weather[0]["date"][5:7])
+    except Exception:
+        month = datetime.date.today().month
 
     highs = [d["temp_max"] for d in weather if d["temp_max"] is not None]
     lows = [d["temp_min"] for d in weather if d["temp_min"] is not None]
@@ -102,29 +137,53 @@ def analyse_weather(weather, terrain, satellite, soil, crop_info):
     best = max(day_scores, key=lambda item: item[1])
     best_day = best[0] if best[1] >= 45 else None
 
-    soil_score = 100 if soil_warm else (100 - (base - avg_soil_temp) * 15 if avg_soil_temp is not None else 55)
+    season_score = _season_score(month, sow_months)
+
+    if avg_soil_temp is None:
+        soil_score = 55
+    else:
+        low = base + 2
+        high = base + 18
+        if avg_soil_temp < low:
+            soil_score = 100 - (low - avg_soil_temp) * 13
+        elif avg_soil_temp > high:
+            soil_score = 100 - (avg_soil_temp - high) * 6
+        else:
+            soil_score = 100
+
+    ceiling = base + 16
+    overs = [max(0.0, d["temp_max"] - ceiling) for d in weather if d["temp_max"] is not None]
+    avg_over = _mean(overs) or 0
+    heat_score = 100 - avg_over * (10 if base <= 8 else 5)
+
     frost_score = 100 - frost_nights * (25 if frost_sensitive else 8)
+
     moisture_score = 100
-    if rain_total > 30:
-        moisture_score -= 30
-    elif rain_total > 18:
+    if moisture_balance < -32:
+        moisture_score -= 15 if texture == "sandy" else 22
+    elif moisture_balance < -15:
+        moisture_score -= 8 if texture == "sandy" else 12
+    if rain_total > 45:
+        moisture_score -= 25
+    elif rain_total > 28:
         moisture_score -= 12
-    dry_penalty = 15 if texture == "sandy" else 8
-    if moisture_balance < -18:
-        moisture_score -= dry_penalty
+
     sun_score = min(100, (sunshine_total / 42) * 100)
+
     ph_penalty = 0
     if soil_ph is not None and (soil_ph < 5.5 or soil_ph > 7.8):
         ph_penalty = 8
 
     score = _clamp(
-        0.30 * _clamp(soil_score)
-        + 0.28 * _clamp(frost_score)
-        + 0.20 * _clamp(moisture_score)
-        + 0.22 * sun_score
+        0.28 * _clamp(season_score)
+        + 0.20 * _clamp(soil_score)
+        + 0.20 * _clamp(heat_score)
+        + 0.16 * _clamp(frost_score)
+        + 0.10 * _clamp(moisture_score)
+        + 0.06 * sun_score
         - ph_penalty
     )
-    verdict = "Good" if score >= 70 else "Fair" if score >= 45 else "Poor"
+    verdict = "Good" if score >= 72 else "Fair" if score >= 48 else "Poor"
 
     parts = []
     if avg_soil_temp is not None:
@@ -197,8 +256,11 @@ def analyse_weather(weather, terrain, satellite, soil, crop_info):
         "sunshine_hours": sunshine_total,
         "wind_max": round(wind_peak) if wind_peak else None,
         "best_day": _fmt(best_day) if best_day else None,
+        "in_season": sow_months is None or _in_window(month, sow_months),
         "factors": {
+            "season": _clamp(season_score),
             "soil": _clamp(soil_score),
+            "heat": _clamp(heat_score),
             "frost": _clamp(frost_score),
             "moisture": _clamp(moisture_score),
             "sun": _clamp(sun_score),
