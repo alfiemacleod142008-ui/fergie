@@ -17,7 +17,7 @@ Everything runs on your own machine. No paid APIs and no keys for the core.
   against the crop's germination threshold, growing degree days, a rain versus evaporation
   moisture balance, sunshine, wind, frost dates, soil pH and texture, a forward heat warning
   and the single best day to sow.
-- A **image intepreter** that anaylyses a users image (crop) and answers their questions to it
+- An **image intepreter** that anaylyses a users image (crop) and answers their questions to it
   and/or analyses the crop to give vital information and the best plan to action for the
   specific crop.
 - A **satellite view** of the pinned field, with a land use check that flags built up spots.
