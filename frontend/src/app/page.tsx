@@ -26,6 +26,7 @@ import { FieldPanel } from "@/components/field-panel";
 import { FieldLoading } from "@/components/field-loading";
 import { Logo } from "@/components/logo";
 import { Markdown } from "@/components/markdown";
+import { Thinking } from "@/components/thinking";
 import { Modal } from "@/components/modal";
 import { ChatInput, ChatInputTextArea } from "@/components/ui/chat-input";
 
@@ -46,6 +47,20 @@ type Msg =
   | { role: "image"; url: string; builtUp?: boolean }
   | { role: "photo"; url: string }
   | { role: "advice"; crop: string; advice: any; land: any; summary: string | null };
+
+function chatSteps(text: string): string[] {
+  const t = text.toLowerCase();
+  const steps = ["Reading your question"];
+  if (/weather|forecast|rain|frost|temperature|temp|sun|wind|hot|cold|dry|wet/.test(t))
+    steps.push("Reading the 14 day forecast");
+  else if (/where|site|spot|plot|soil|drainage|slope|aspect|shelter/.test(t))
+    steps.push("Checking your soil and the site");
+  else if (/plan|schedule|how (do|to|can)|grow|growing|step|start|guide|rotation|calendar/.test(t))
+    steps.push("Working through the steps");
+  else steps.push("Weighing the season and conditions");
+  steps.push("Writing your reply");
+  return steps;
+}
 
 function wantsField(text: string) {
   const t = text.toLowerCase();
@@ -150,6 +165,7 @@ export default function Home() {
   const [crop, setCrop] = useState("");
   const [input, setInput] = useState("");
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [thinking, setThinking] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [sending, setSending] = useState(false);
@@ -394,11 +410,13 @@ export default function Home() {
       const image = pendingImage;
       setPendingImage(null);
       setInput("");
+      setThinking(["Looking at your photo", "Identifying the plant", "Reading its condition"]);
       identifyImage(image, q);
       return;
     }
     if (!q) return;
     setInput("");
+    setThinking(chatSteps(q));
     onSend(q);
   }
 
@@ -824,13 +842,7 @@ export default function Home() {
                     </div>
                   );
                 })}
-                {sending && (
-                  <div className="flex gap-1.5 py-1" aria-label="Fergie is typing">
-                    <span className="size-2 animate-bounce rounded-full bg-emerald-400/70 [animation-delay:-0.3s]" />
-                    <span className="size-2 animate-bounce rounded-full bg-emerald-400/70 [animation-delay:-0.15s]" />
-                    <span className="size-2 animate-bounce rounded-full bg-emerald-400/70" />
-                  </div>
-                )}
+                {sending && <Thinking steps={thinking.length ? thinking : ["Thinking"]} />}
                 <div ref={endRef} />
               </div>
             )}
